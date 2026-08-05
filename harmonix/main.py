@@ -1,5 +1,6 @@
 import argparse
 import asyncio
+import webbrowser
 
 from harmonix.brain.agent import Agent
 from harmonix.proactive.scheduler import ProactiveScheduler
@@ -96,6 +97,7 @@ async def main() -> None:
     parser = argparse.ArgumentParser(description="Harmonix 2.0")
     parser.add_argument("--text", action="store_true", help="Text mode (no mic)")
     parser.add_argument("--no-dashboard", action="store_true", help="Disable web dashboard")
+    parser.add_argument("--no-browser", action="store_true", help="Don't open dashboard in the browser")
     args = parser.parse_args()
 
     agent = Agent()
@@ -109,6 +111,12 @@ async def main() -> None:
         except Exception as e:
             log.warning("Dashboard failed to start: %s", e)
             dashboard = None
+        else:
+            if not args.no_browser:
+                try:
+                    await asyncio.to_thread(webbrowser.open, dashboard.url)
+                except Exception as e:
+                    log.warning("Could not open browser: %s", e)
 
     await bus.set_state("loading")
 
