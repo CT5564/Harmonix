@@ -20,6 +20,13 @@ def _get_model():
             from faster_whisper import WhisperModel
 
             log.info("Loading faster-whisper model '%s'...", config.STT_MODEL)
+            try:
+                from harmonix.service.events import bus
+                asyncio.ensure_future(
+                    bus.set_state("loading", message=f"Loading speech model ({config.STT_MODEL})...")
+                )
+            except Exception:
+                pass
             _model = WhisperModel(
                 config.STT_MODEL,
                 device=config.STT_DEVICE,

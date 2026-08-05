@@ -3,6 +3,8 @@ import asyncio
 
 from harmonix.brain.agent import Agent
 from harmonix.proactive.scheduler import ProactiveScheduler
+from harmonix.service.dashboard import Dashboard
+from harmonix.service.events import bus
 from harmonix.service.log import get_log
 from harmonix.service.tray import Tray
 from harmonix.tools.registry import register_all
@@ -23,6 +25,7 @@ async def run_once(agent: Agent) -> None:
     """Single wake-word interaction: listen, think, speak."""
     command = await wait_for_wakeword(timeout=300)
     if command is None:
+        await bus.set_state("idle")
         log.info("Wake word timeout.")
         return
 
@@ -31,26 +34,42 @@ async def run_once(agent: Agent) -> None:
         return
 
     log.info("Command: %s", command)
+    bus.emit_text("user", command)
 
     full = command
     if len(command) < 3:
+        await bus.set_state("thinking")
         ok, audio = await asyncio.to_thread(record_until_silence)
         if ok:
             spoken = await stt.transcribe(audio)
             full = f"{command} {spoken}".strip()
             log.info("Full utterance: %s", full)
+            if full != command:
+                bus.emit_text("user", full)
 
+    await bus.set_state("thinking")
     response = await agent.run(full)
     log.info("Response: %s", response)
+    bus.emit_text("assistant", response)
 
     if response.strip() and not MUTE_STATE["muted"]:
+        await bus.set_state("speaking")
         await tts.speak(response)
+
+    await bus.set_state("idle")
+
+
+def _safe_print(text: str) -> None:
+    try:
+        print(text)
+    except UnicodeEncodeError:
+        print(text.encode("ascii", "replace").decode())
 
 
 async def run_text_mode(agent: Agent) -> None:
     """Interactive text REPL for testing without a mic."""
     log.info("Text mode. Type commands (blank line to exit).")
-    print("Harmonix text mode — type a command, or press Enter to exit.")
+    _safe_print("Harmonix text mode — type a command, or press Enter to exit.")
     while True:
         try:
             line = input("you> ").strip()
@@ -58,8 +77,12 @@ async def run_text_mode(agent: Agent) -> None:
             break
         if not line:
             break
+        bus.emit_text("user", line)
+        await bus.set_state("thinking")
         response = await agent.run(line)
-        print(f"Harmonix> {response}")
+        bus.emit_text("assistant", response)
+        _safe_print(f"Harmonix> {response}")
+        await bus.set_state("idle")
 
 
 async def shutdown() -> None:
@@ -72,12 +95,25 @@ async def shutdown() -> None:
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Harmonix 2.0")
     parser.add_argument("--text", action="store_true", help="Text mode (no mic)")
+    parser.add_argument("--no-dashboard", action="store_true", help="Disable web dashboard")
     args = parser.parse_args()
 
     agent = Agent()
     register_all(agent)
 
+    dashboard: Dashboard | None = None
+    if not args.no_dashboard:
+        dashboard = Dashboard()
+        try:
+            await dashboard.start()
+        except Exception as e:
+            log.warning("Dashboard failed to start: %s", e)
+            dashboard = None
+
+    await bus.set_state("loading")
+
     if args.text:
+        await bus.set_state("idle")
         await run_text_mode(agent)
         return
 
@@ -92,6 +128,7 @@ async def main() -> None:
         log.warning("Tray failed to start: %s", e)
 
     log.info("Harmonix online. Say '%s' to wake me.", "harmonix")
+    await bus.set_state("listening")
 
     try:
         while True:
@@ -100,6 +137,8 @@ async def main() -> None:
         pass
     finally:
         await scheduler.stop()
+        if dashboard:
+            await dashboard.stop()
 
 
 def cli() -> None:

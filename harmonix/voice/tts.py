@@ -32,7 +32,26 @@ def _download(url: str, dest: Path) -> None:
     log.info("Downloading %s...", dest.name)
     tmp = tempfile.NamedTemporaryFile(delete=False, suffix=dest.suffix, dir=MODEL_DIR)
     tmp.close()
-    urllib.request.urlretrieve(url, tmp.name)  # noqa: S310
+
+    def _report(count: int, block_size: int, total: int) -> None:
+        try:
+            from harmonix.service.events import bus
+            if total > 0:
+                pct = min(100, count * block_size * 100 // total)
+                asyncio.ensure_future(
+                    bus.set_state("loading", message=f"Downloading voice model... {pct}%")
+                )
+        except Exception:
+            pass
+
+    try:
+        urllib.request.urlretrieve(url, tmp.name, _report)  # noqa: S310
+    except Exception:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
+        raise
     os.replace(tmp.name, dest)
     log.info("Downloaded %s.", dest.name)
 
@@ -43,9 +62,16 @@ def _get_tts():
         if _tts is None:
             from kokoro_onnx import Kokoro
 
+            log.info("Loading Kokoro TTS...")
+            try:
+                from harmonix.service.events import bus
+                asyncio.ensure_future(
+                    bus.set_state("loading", message="Loading voice model...")
+                )
+            except Exception:
+                pass
             _download(ONNX_URL, ONNX_PATH)
             _download(VOICES_URL, VOICES_PATH)
-            log.info("Loading Kokoro TTS...")
             _tts = Kokoro(str(ONNX_PATH), str(VOICES_PATH))
             log.info("TTS loaded.")
         return _tts
