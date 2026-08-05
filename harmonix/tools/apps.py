@@ -21,6 +21,9 @@ _APP_MAP = {
     "powershell": ["powershell"],
     "word": ["winword"],
     "excel": ["excel"],
+    "sticky notes": ["start", "shell:AppsFolder\\Microsoft.MicrosoftStickyNotes_8wekyb3d8bbwe!App"],
+    "stickynotes": ["start", "shell:AppsFolder\\Microsoft.MicrosoftStickyNotes_8wekyb3d8bbwe!App"],
+    "sticky": ["start", "shell:AppsFolder\\Microsoft.MicrosoftStickyNotes_8wekyb3d8bbwe!App"],
 }
 
 

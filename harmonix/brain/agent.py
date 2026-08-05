@@ -56,18 +56,22 @@ class Agent:
         tool_calls = message.get("tool_calls")
 
         self._remember(user_input)
+        self.history.append({"role": "user", "content": user_input})
 
         if tool_calls:
+            messages.append(message)
             self.history.append(message)
-            content = await self._run_tool_calls(tool_calls, model)
+            content = await self._run_tool_calls(messages, tool_calls, model)
         else:
-            self.history.append({"role": "assistant", "content": content})
+            final = {"role": "assistant", "content": content}
+            messages.append(final)
+            self.history.append(final)
 
         self._remember(content, role="assistant")
         self._extract_facts(user_input, content)
         return content
 
-    async def _run_tool_calls(self, tool_calls: list, model: str) -> str:
+    async def _run_tool_calls(self, messages: list, tool_calls: list, model: str) -> str:
         for tc in tool_calls:
             fn = tc.get("function", {})
             name = fn.get("name", "")
@@ -91,18 +95,19 @@ class Agent:
                 except Exception as e:
                     result = f"Tool error: {e}"
 
-            self.history.append(
-                {
-                    "role": "tool",
-                    "tool_call_id": tc.get("id", ""),
-                    "content": str(result),
-                }
-            )
+            tool_msg = {
+                "role": "tool",
+                "tool_call_id": tc.get("id", ""),
+                "content": str(result),
+            }
+            messages.append(tool_msg)
+            self.history.append(tool_msg)
 
-        follow_up = await llm.chat(model, self.history)
+        follow_up = await llm.chat(model, messages)
         final = follow_up["message"].get("content") or ""
-        self.history.append({"role": "assistant", "content": final})
-        self._remember(final, role="assistant")
+        final_msg = {"role": "assistant", "content": final}
+        messages.append(final_msg)
+        self.history.append(final_msg)
         return final
 
     def _remember(self, content: str, role: str = "user") -> None:
