@@ -32,6 +32,10 @@ OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "3"))
 TIMEZONE = os.getenv("HARMONIX_TIMEZONE", "Asia/Manila")
 TZ_OFFSET_HOURS = int(os.getenv("HARMONIX_TZ_OFFSET_HOURS", "8"))
 
+# Notion
+NOTION_TASKS_DB_ID = os.getenv("NOTION_TASKS_DB_ID", "1d798e489e2b80f4aa4ccf3a01993734")
+NOTION_PROJECTS_DB_ID = os.getenv("NOTION_PROJECTS_DB_ID", "12f98e489e2b81adb67ccdc6f51f0989")
+
 # Tools
 ALLOWED_DIRS = [
     d.strip() for d in os.getenv("HARMONIX_ALLOWED_DIRS", "").split(";")
