@@ -1,4 +1,5 @@
 from harmonix.brain.agent import Agent
+from harmonix.proactive import reminders
 from harmonix.tools import apps, browser, files, notion, system
 
 
@@ -268,4 +269,35 @@ def register_all(agent: Agent) -> None:
             },
         },
         notion.search_notion,
+    )
+    agent.register_tool(
+        "add_reminder",
+        {
+            "type": "function",
+            "function": {
+                "name": "add_reminder",
+                "description": "Set a reminder. When accepts 'HH:MM' (today, or tomorrow if passed), 'in 5 minutes', 'in 2 hours', or an ISO timestamp.",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "message": {"type": "string"},
+                        "when": {"type": "string"},
+                    },
+                    "required": ["message", "when"],
+                },
+            },
+        },
+        reminders.add_reminder,
+    )
+    agent.register_tool(
+        "list_reminders",
+        {
+            "type": "function",
+            "function": {
+                "name": "list_reminders",
+                "description": "List all pending reminders.",
+                "parameters": {"type": "object", "properties": {}},
+            },
+        },
+        reminders.list_reminders,
     )

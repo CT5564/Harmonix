@@ -1,6 +1,7 @@
 import asyncio
 
 from harmonix.brain.agent import Agent
+from harmonix.proactive.scheduler import ProactiveScheduler
 from harmonix.service.log import get_log
 from harmonix.tools.registry import register_all
 from harmonix.voice import stt, tts
@@ -42,6 +43,8 @@ async def run_once(agent: Agent) -> None:
 async def main() -> None:
     agent = Agent()
     register_all(agent)
+    scheduler = ProactiveScheduler()
+    scheduler.start()
     log.info("Harmonix online. Say '%s' to wake me.", "harmonix")
 
     while True:
